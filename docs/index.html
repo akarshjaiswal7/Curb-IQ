@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CurbIQ — Illegal-Parking &amp; Congestion Intelligence</title>
+  <meta name="description" content="CurbIQ: AI-powered illegal-parking hotspot detection and congestion impact analysis for Bengaluru Traffic Police." />
+  <meta name="theme-color" content="#0b0e14" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="operator.css" />
+</head>
+<body>
+  <!-- ═══════════════════════════════════════════════════════════
+       HOME MODE (LANDING PAGE)
+  ═══════════════════════════════════════════════════════════ -->
+  <div id="home-mode">
+    <canvas id="login-network-canvas"></canvas>
+    <div class="login-card">
+      <div class="login-left">
+        <div class="login-visual" style="background-image: url('login_visual.png');">
+          <div class="login-visual-overlay"></div>
+        </div>
+      </div>
+      <div class="login-right">
+        <div class="login-brand" style="margin-bottom: 20px;">
+          <b><span class="logo">◖</span> CurbIQ</b>
+          <span>AI-Powered Parking Intelligence</span>
+        </div>
+        <p class="home-subtitle" style="margin-bottom: 30px; margin-top: 0; color: var(--muted); font-size: 14px;">
+          Identify illegal-parking hotspots and analyze congestion impacts across Bengaluru's road network.
+        </p>
+        <button class="login-submit-btn" id="home-continue-btn" style="width: 100%;">Continue to Dashboard</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="app-container" style="display: none; flex: 1; flex-direction: column; min-height: 0;">
+  <!-- ═══════════════════════════════════════════════════════════
+       SHARED HEADER
+  ═══════════════════════════════════════════════════════════ -->
+  <header id="main-header">
+    <div class="brand">
+      <b><span class="logo">◖</span> CurbIQ</b>
+      <span>Illegal-Parking Hotspots &amp; Congestion Impact · Bengaluru Traffic Police</span>
+    </div>
+    <!-- Research-mode KPIs (hidden in operator mode) -->
+    <div class="kpis" id="kpis"></div>
+  </header>
+
+
+  <!-- ═══════════════════════════════════════════════════════════
+       OPERATOR MODE  (default / landing)
+  ═══════════════════════════════════════════════════════════ -->
+  <div id="operator-mode" style="display:none">
+
+    <div class="op-layout">
+
+      <!-- ── SIDEBAR ── -->
+      <aside class="op-sidebar">
+
+        <!-- WORKSPACES section -->
+        <div class="op-section ws-section">
+          <div class="op-section-title">Workspaces</div>
+          <div class="ws-nav">
+            <button class="ws-btn active" data-mode="research" id="ws-btn-research">
+              <span class="ws-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10M12 20V4M6 20v-4"></path></svg></span>
+              <span class="ws-text"><span class="ws-label">Research Mode</span><span class="ws-desc">Analytics &amp; Insights</span></span>
+              <span class="ws-active-dot"></span>
+            </button>
+            <button class="ws-btn" data-mode="operator" id="ws-btn-operator">
+              <span class="ws-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg></span>
+              <span class="ws-text"><span class="ws-label">Operator Mode</span><span class="ws-desc">Command &amp; Dispatch</span></span>
+              <span class="ws-active-dot"></span>
+            </button>
+          </div>
+        </div>
+        <div class="op-divider"></div>
+
+        <!-- Operational KPIs -->
+        <div class="op-section">
+          <div class="op-section-title">Today's Overview</div>
+          <div class="op-kpis" id="op-kpis">
+            <!-- filled dynamically by operator.js renderOpKPIs() -->
+          </div>
+        </div>
+
+        <!-- View modes -->
+        <div class="op-section" id="op-view-modes-section">
+          <div class="op-section-title">View Mode</div>
+          <div class="op-view-modes">
+            <label class="op-view-mode active">
+              <input type="radio" name="view-mode" value="enforcement" checked />
+              <span class="op-view-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4"></path><path d="M12 16h.01"></path></svg></span> Enforcement
+            </label>
+            <label class="op-view-mode">
+              <input type="radio" name="view-mode" value="congestion" />
+              <span class="op-view-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="7" y="2" width="10" height="20" rx="3"></rect><circle cx="12" cy="7" r="1.5"></circle><circle cx="12" cy="12" r="1.5"></circle><circle cx="12" cy="17" r="1.5"></circle></svg></span> Congestion
+            </label>
+            <label class="op-view-mode">
+              <input type="radio" name="view-mode" value="forecast" />
+              <span class="op-view-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg></span> Forecast
+            </label>
+            <label class="op-view-mode">
+              <input type="radio" name="view-mode" value="patrol" />
+              <span class="op-view-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg></span> Patrol Planning
+            </label>
+          </div>
+        </div>
+
+        <!-- Emergency mode -->
+        <div class="op-section">
+          <div class="op-section-title">Emergency</div>
+          <button class="op-emergency-btn" id="op-emergency-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4"></path><path d="M12 16h.01"></path></svg> High Risk Now
+          </button>
+        </div>
+
+        <!-- Timeline -->
+        <div class="op-section" id="op-timeline-section">
+          <div class="op-section-title">Time Playback</div>
+          <div class="op-timeline">
+            <div class="op-timeline-controls">
+              <button class="op-tl-btn" id="op-tl-prev"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="19 20 9 12 19 4 19 20"></polygon><line x1="5" y1="19" x2="5" y2="5"></line></svg></button>
+              <button class="op-tl-btn" id="op-tl-play"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg></button>
+              <button class="op-tl-btn" id="op-tl-next"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 4 15 12 5 20 5 4"></polygon><line x1="19" y1="5" x2="19" y2="19"></line></svg></button>
+              <button class="op-tl-btn" id="op-tl-all" title="Show all-time">All</button>
+              <span class="op-week-label" id="op-week-label">All-time</span>
+            </div>
+            <input type="range" id="op-week-slider" min="0" max="0" value="0" step="1" />
+          </div>
+        </div>
+
+      </aside>
+
+      <!-- ── MAP ── -->
+      <div class="op-map-wrap">
+        <div id="op-map"></div>
+        <div class="loading" id="op-loading">Loading CurbIQ data…</div>
+        <!-- Map legend -->
+        <div class="op-map-legend">
+          <div class="op-legend-title" id="op-legend-title">Enforcement Priority</div>
+          <div class="op-legend-bar"></div>
+          <div class="op-legend-labels">
+            <span id="op-legmin">Low</span>
+            <span id="op-legmax">High</span>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /.op-layout -->
+
+    <!-- ── ACTION PANEL ── -->
+    <div class="op-action-panel" id="op-action-panel">
+      <!-- Drawer handle -->
+      <div class="op-drawer-handle" id="op-drawer-handle">
+        <div class="op-action-tabs" id="op-action-tabs">
+          <button class="op-action-tab active" data-optab="targets"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg> Deployment Targets</button>
+          <button class="op-action-tab"        data-optab="dispatch"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg> Dispatch Planner</button>
+          <div class="op-tab-indicator" id="op-tab-indicator"></div>
+        </div>
+        <button class="op-drawer-toggle" id="op-drawer-toggle" title="Collapse panel">▼</button>
+      </div>
+
+      <!-- Tab: Deployment targets -->
+      <div class="op-action-content" id="op-tab-targets">
+        <div class="op-targets-scroll" id="op-targets">
+          <!-- filled by operator.js -->
+        </div>
+      </div>
+
+      <!-- Tab: Dispatch planner -->
+      <div class="op-action-content" id="op-tab-dispatch" style="display:none">
+        <div class="op-dispatch-form">
+          <div class="op-dispatch-input">
+            <label for="op-units">Available Patrol Units</label>
+            <input type="number" id="op-units" min="1" max="12" value="6" />
+            <!-- value is seeded from DATA.patrol.n_units by seedDispatchForm() -->
+          </div>
+          <div class="op-dispatch-input">
+            <label for="op-shift">Shift Duration</label>
+            <select id="op-shift">
+              <option value="2">2 Hours</option>
+              <option value="4" selected>4 Hours</option>
+              <option value="6">6 Hours</option>
+            </select>
+          </div>
+          <button class="op-dispatch-btn" id="op-generate-plan">Generate Plan</button>
+        </div>
+        <div class="op-dispatch-results" id="op-dispatch-results">
+          <!-- filled by operator.js -->
+        </div>
+      </div>
+    </div><!-- /.op-action-panel -->
+
+  </div><!-- /#operator-mode -->
+
+
+  <!-- ═══════════════════════════════════════════════════════════
+       RESEARCH MODE
+  ═══════════════════════════════════════════════════════════ -->
+  <div id="research-mode">
+
+    <main>
+      <!-- LEFT: controls -->
+      <aside class="left" id="panel-left">
+        <button class="hide-left" id="hide-left" title="Hide panel">‹</button>
+
+        <!-- WORKSPACES section -->
+        <div class="section">
+          <h3>Workspaces</h3>
+          <div class="ws-nav">
+            <button class="ws-btn active" data-mode="research" id="ws-btn-research-r">
+              <span class="ws-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10M12 20V4M6 20v-4"></path></svg></span>
+              <span class="ws-text"><span class="ws-label">Research Mode</span><span class="ws-desc">Analytics &amp; Insights</span></span>
+              <span class="ws-active-dot"></span>
+            </button>
+            <button class="ws-btn" data-mode="operator" id="ws-btn-operator-r">
+              <span class="ws-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg></span>
+              <span class="ws-text"><span class="ws-label">Operator Mode</span><span class="ws-desc">Command &amp; Dispatch</span></span>
+              <span class="ws-active-dot"></span>
+            </button>
+          </div>
+        </div>
+
+        <div class="section">
+          <h3>Map layer</h3>
+          <div class="control">
+            <label for="metric">Colour hexes by</label>
+            <select id="metric">
+              <option value="priority_score">Enforcement priority</option>
+              <option value="gi_z">Hotspot intensity (Gi* z)</option>
+              <option value="cis_score">Congestion impact (CIS)</option>
+              <option value="count">Violation count</option>
+              <option value="forecast_area">Forecast (next day)</option>
+              <option value="under_enforcement_gap">Under-enforcement gap</option>
+              <option value="emergence_risk">Emergence risk (will become hotspot)</option>
+              <option value="recoverable_delay">Recoverable delay (clear-it ROI)</option>
+            </select>
+          </div>
+          <div class="legend">
+            <div class="bar"></div>
+            <div class="ends"><span id="legmin">low</span><span id="legmax">high</span></div>
+          </div>
+          <div class="control" style="margin-top:12px">
+            <label>Week: <span id="week-label">All-time</span>
+              <button id="week-play" class="minibtn" title="Animate weeks"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg></button>
+              <button id="week-all" class="minibtn" title="Show all-time">All</button>
+            </label>
+            <input type="range" id="week-slider" min="0" max="0" value="0" step="1" />
+          </div>
+        </div>
+
+        <div class="section">
+          <h3>Overlays</h3>
+          <label class="toggle"><input type="checkbox" id="t-hex" checked><span class="custom-checkbox"></span> H3 hex layer</label>
+          <label class="toggle"><input type="checkbox" id="t-heat"><span class="custom-checkbox"></span> Density heat</label>
+          <label class="toggle"><input type="checkbox" id="t-junctions"><span class="custom-checkbox"></span> Junctions (top 60)</label>
+          <label class="toggle"><input type="checkbox" id="t-zones"><span class="custom-checkbox"></span> Hotspot zones</label>
+          <label class="toggle"><input type="checkbox" id="t-blind"><span class="custom-checkbox"></span> Under-enforcement blind spots</label>
+          <label class="toggle"><input type="checkbox" id="t-novel"><span class="custom-checkbox"></span> Novel hotspots (off-junction)</label>
+          <label class="toggle"><input type="checkbox" id="t-emergence"><span class="custom-checkbox"></span> Emergence watch-list (forecast)</label>
+          <label class="toggle"><input type="checkbox" id="t-patrol"><span class="custom-checkbox"></span> Patrol routes (evening shift)</label>
+          <label class="toggle" id="t-3d-wrap" style="display:none"><input type="checkbox" id="t-3d"><span class="custom-checkbox"></span> 3D extruded hexes (deck.gl)</label>
+          <label class="toggle"><input type="checkbox" id="t-hotonly"><span class="custom-checkbox"></span> Significant hotspots only</label>
+        </div>
+
+        <div class="section">
+          <h3>Filters</h3>
+          <div class="control">
+            <label for="offence">Offence type</label>
+            <select id="offence"><option value="">All parking offences</option></select>
+          </div>
+          <div class="control">
+            <label for="minpri">Min priority score: <span id="minpri-v">0</span></label>
+            <input type="range" id="minpri" min="0" max="100" value="0" step="1" />
+          </div>
+        </div>
+
+        <div class="section">
+          <h3>About</h3>
+          <p class="about-note">
+            Public layers are <b>H3 cell-aggregated</b> (DPDP-compliant); cells with
+            &lt;5 records are suppressed. Congestion impact is a
+            <span class="badge modeled">modeled</span> estimate (HCM&nbsp;→&nbsp;BPR),
+            not measured speed.
+          </p>
+          <div class="pill-row" id="meta-pills"></div>
+          <div class="credit">Basemap © OpenStreetMap contributors, © CARTO.</div>
+        </div>
+      </aside>
+
+      <!-- CENTER: map -->
+      <div id="map-wrap">
+        <div id="map"></div>
+        <div class="loading" id="loading">Loading CurbIQ artifacts…</div>
+        <div class="map-empty" id="map-empty" style="display:none">No cells match these filters.</div>
+      </div>
+
+      <!-- RIGHT: analytics -->
+      <aside class="right">
+        <div class="tabs">
+          <button data-tab="overview" class="active">Overview</button>
+          <button data-tab="temporal">Timing</button>
+          <button data-tab="model">Model</button>
+          <button data-tab="equity">Equity</button>
+          <button class="panel-collapse" id="hide-right" title="Hide panel">›</button>
+        </div>
+
+        <div class="tabpane active" id="tab-overview">
+          <div class="card">
+            <h4>Where the carriageway chokes</h4>
+            <p class="note">Top enforcement-priority locations, fusing statistical hotspot
+              intensity, modeled congestion impact and the next-day forecast.</p>
+            <table class="mini" id="tbl-priority"></table>
+          </div>
+          <div class="card">
+            <h4>Coverage vs. effort</h4>
+            <p class="note">Cumulative share of violations captured as you enforce more
+              locations, ranked by priority. The knee is the efficient deployment size.</p>
+            <canvas id="ch-coverage"></canvas>
+          </div>
+          <div class="card">
+            <h4>Congestion ROI — recoverable delay <span class="badge modeled">modeled</span></h4>
+            <p class="note">Modeled traffic delay recoverable if each hotspot's illegal parking is
+              cleared (BPR Δ-delay × volume); reconciles with the city delay-impact index. Curve:
+              cumulative delay recovered as more cells are cleared, ranked by ROI.</p>
+            <div class="metric-row" id="roi-stats"></div>
+            <canvas id="ch-roi"></canvas>
+          </div>
+          <div class="card">
+            <h4>Top junctions</h4>
+            <table class="mini" id="tbl-junctions"></table>
+          </div>
+          <div class="card">
+            <h4>Validation vs BTP geography <span class="badge" id="geo-badge">junctions</span></h4>
+            <p class="note">How well statistical hotspots align with BTP's recognized junctions (precision within 300 m) — and novel off-junction hotspots = candidate new deployment points.</p>
+            <div class="metric-row" id="geo-stats"></div>
+          </div>
+          <div class="card">
+            <h4>Optimized patrol plan <span class="badge" id="patrol-badge">VRP</span></h4>
+            <p class="note">Evening-shift dispatch routes covering top-priority cells within each unit's time budget — the missing shift, made deployable. Toggle "Patrol routes" on the map.</p>
+            <div class="metric-row" id="patrol-stats"></div>
+          </div>
+        </div>
+
+        <div class="tabpane" id="tab-temporal">
+          <div class="card">
+            <h4>Recorded-activity windows <span class="badge">timing</span></h4>
+            <p class="note">Best 4-hour windows of <b>recorded</b> activity (weighted by modeled
+              peak congestion). Recorded times are patrol/recording-biased toward morning hours, so
+              these are <b>not</b> a deploy schedule — the actionable signal is the evening-peak
+              blind spot (high congestion risk vs ~0.2% recorded enforcement), shown below and on
+              the Equity tab.</p>
+            <div class="metric-row" id="timing-stats"></div>
+            <table class="mini" id="tbl-timing"></table>
+          </div>
+          <div class="card">
+            <h4>Enforcement vs. congestion risk by hour <span class="badge">IST</span></h4>
+            <p class="note">The blind spot: evening peak (5–9 PM) carries high congestion
+              risk yet sees almost no parking enforcement.</p>
+            <canvas id="ch-hourly"></canvas>
+          </div>
+          <div class="card">
+            <h4>Daily violations</h4>
+            <canvas id="ch-daily"></canvas>
+          </div>
+          <div class="card">
+            <h4>Vehicle mix &amp; top offences</h4>
+            <canvas id="ch-vehicle"></canvas>
+            <canvas id="ch-offence" style="margin-top:10px"></canvas>
+          </div>
+        </div>
+
+        <div class="tabpane" id="tab-model">
+          <div class="card">
+            <h4>Forecast model <span class="badge live">LightGBM Poisson</span></h4>
+            <p class="note">Walk-forward validated (expanding window, no leakage). PAI =
+              prediction accuracy index; ROC-AUC on the top-decile hotspot label.</p>
+            <div class="metric-row" id="model-stats"></div>
+          </div>
+          <div class="card">
+            <h4>Emergence model <span class="badge live">LightGBM binary</span></h4>
+            <p class="note">Predicts which cells will <b>become</b> hotspots in the next 28 days
+              (forward-looking, temporal holdout). Reported honestly vs a persistence baseline.</p>
+            <div class="metric-row" id="emergence-stats"></div>
+          </div>
+          <div class="card">
+            <h4>Model vs. baselines (PAI@5%)</h4>
+            <canvas id="ch-baselines"></canvas>
+          </div>
+          <div class="card">
+            <h4>Feature importance</h4>
+            <canvas id="ch-features"></canvas>
+          </div>
+          <div class="card">
+            <h4>Congestion validation <span class="badge" id="calib-badge">probe ρ</span></h4>
+            <p class="note">CIS rank-validated against probe speeds (Spearman ρ); component weights re-fit to the feed. Synthetic probe shown — drop in TomTom/Google/Uber via <code>build_all.py --probe</code>.</p>
+            <div class="metric-row" id="calib-stats"></div>
+            <canvas id="ch-calib"></canvas>
+          </div>
+        </div>
+
+        <div class="tabpane" id="tab-equity">
+          <div class="card">
+            <h4>Hourly under-enforcement gap</h4>
+            <p class="note">Positive = under-enforced relative to congestion risk for that hour.</p>
+            <canvas id="ch-gap"></canvas>
+          </div>
+          <div class="card">
+            <h4>Spatial equity across stations</h4>
+            <p class="note">Enforcement coverage relative to modeled need. 4/5ths
+              disparate-impact rule applied.</p>
+            <div class="metric-row" id="equity-stats"></div>
+            <table class="mini" id="tbl-equity"></table>
+          </div>
+          <div class="card">
+            <h4>Emerging hotspots</h4>
+            <canvas id="ch-emerging"></canvas>
+          </div>
+        </div>
+
+        <div class="footer-note" id="footer"></div>
+      </aside>
+    </main>
+
+    <!-- Reveal buttons (outside main, inside research-mode wrapper) -->
+    <button class="reveal reveal-left" id="show-left" title="Show controls">
+      <svg class="reveal-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M6 4l4 4-4 4"/>
+      </svg>
+      <span>Controls</span>
+    </button>
+    <button class="reveal reveal-right" id="show-right" title="Show insights">
+      <span>Insights</span>
+      <svg class="reveal-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M10 4l-4 4 4 4"/>
+      </svg>
+    </button>
+
+  </div><!-- /#app-container -->
+
+  <!-- Scripts -->
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      if (typeof startLoginAnimation === 'function') startLoginAnimation();
+    });
+
+    document.getElementById('home-continue-btn').addEventListener('click', function() {
+      document.getElementById('home-mode').style.display = 'none';
+      document.getElementById('app-container').style.display = 'flex';
+      // Trigger map resize since it was hidden on load
+      if (typeof map !== 'undefined' && map) map.invalidateSize();
+      if (typeof opMap !== 'undefined' && opMap) opMap.invalidateSize();
+    });
+  </script>
+  <script src="login_bg.js"></script>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+  <script src="https://unpkg.com/h3-js@4.1.0/dist/h3-js.umd.js"></script>
+  <script src="https://unpkg.com/chart.js@4.4.3/dist/chart.umd.js"></script>
+  <script src="https://unpkg.com/deck.gl@9.0.38/dist.min.js"></script>
+  <script src="operator.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
